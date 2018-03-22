@@ -1,7 +1,9 @@
-from tornado import web, ioloop, options
+import handlers
+
+from tornado import web, ioloop
+from tornado.options import define, options
 from tornado.httpserver import HTTPServer
 from conf import settings
-import handlers
 
 
 class Application(web.Application):
@@ -15,11 +17,15 @@ class Application(web.Application):
 
 
 def main():
+    define("port", default=8888, help="port to listen on for server")
+    define("redis_host", default='localhost', help="redis server host")
+    define("redis_port", default=6379, help="redis server port")
+
     options.parse_command_line()
     app = Application()
     server = HTTPServer(app)
     # single thread && single process
-    server.listen(8888)
+    server.listen(options.port)
 
     loop = ioloop.IOLoop.current()
     loop.start()
