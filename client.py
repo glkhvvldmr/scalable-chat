@@ -2,9 +2,10 @@ import aiohttp
 import asyncio
 import json
 import sys
+import argparse
 
-SERVER_HOST = 'http://localhost'
-SERVER_PORT = 8888
+DEFAULT_SERVER_HOST = 'localhost'
+DEFAULT_SERVER_PORT = 8888
 
 
 class InputReader:
@@ -32,17 +33,27 @@ class InputReader:
 
 
 class ChatClient:
-    def __init__(self):
+    def __init__(self, host=None, port=None):
         self.user_name = ''
         self.session = None
         self.ws = None
         self.ir = InputReader()
+        self.host = host or DEFAULT_SERVER_HOST
+        self.port = port or DEFAULT_SERVER_PORT
+
+    def _get_url(self, route):
+        """
+        Получить url
+        :param route: маршрут
+        :return: url
+        """
+        return '{scheme}://{host}:{port}/{route}'.format(scheme='http', host=self.host, port=self.port, route=route)
 
     async def _ws_conn_init(self):
         """
         Инициализирует соедение по вебсокету
         """
-        self.ws = await self.session.ws_connect('{host}:{port}/{route}'.format(host=SERVER_HOST, port=SERVER_PORT, route='chat'))
+        self.ws = await self.session.ws_connect(self._get_url('chat'))
 
     def _session_init(self):
         """
@@ -59,8 +70,7 @@ class ChatClient:
             print('You already logout. If you want login press login()')
             return
 
-        logout_response = await self.session.request('get',
-                                                    '{host}:{port}/{route}'.format(host=SERVER_HOST, port=SERVER_PORT, route='logout'))
+        logout_response = await self.session.request(self._get_url('logout'))
         resp = await logout_response.json()
         print(resp['msg'])
         self.user_name = ''
@@ -89,7 +99,7 @@ class ChatClient:
         self.user_name = await self.ir.input()
 
         login_response = await self.session.request('post',
-                                                    '{host}:{port}/{route}'.format(host=SERVER_HOST, port=SERVER_PORT, route='login'),
+                                                    self._get_url('login'),
                                                     data=json.dumps({'name': self.user_name}),
                                                     headers={'Content-Type': 'application/json'})
         resp = await login_response.json()
@@ -138,8 +148,14 @@ class ChatClient:
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Chat server host port')
+    parser.add_argument('-host', help='server host', type=str, dest='host')
+    parser.add_argument('-port', help='server port', type=int, dest='port')
+
+    args = parser.parse_args()
+
     loop = asyncio.get_event_loop()
-    chat = ChatClient()
+    chat = ChatClient(args.host, args.port)
 
     loop.run_until_complete(chat.init())
     tasks = [
